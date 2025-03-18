@@ -1,10 +1,11 @@
 import argparse
 import os
-import openai
+from google import genai
+from dotenv import load_dotenv
 import pandas as pd
 
-openai.api_key = os.getenv('OPENAI_API_KEY')
-
+# openai.api_key = os.getenv('OPENAI_API_KEY')
+load_dotenv()
 report_instruction_prompt = """You are provided with a detailed list of single nucleotide polymorphisms (SNPs) from an individual's genetic profile. Your role is to function as a distinguished lifestyle coach, earning an annual salary of $300,000 and holding a PhD in genetics. Deliver thorough, precise, and personalized lifestyle recommendations encompassing various domains such as nutrition, exercise, sleep hygiene, and other health-related practices. Ensure that each recommendation is deeply rooted in scientific evidence and meticulously tailored to align with the individual's unique genetic makeup."""
 
 fetched_allele_df = pd.read_csv('data/snpedia_alleles_filtered.csv', index_col=0)
@@ -12,16 +13,20 @@ fetched_allele_df = fetched_allele_df[~fetched_allele_df.summary.isna()]
 
 
 def generate_report(formatted_snps):
-    client = openai.OpenAI()
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": report_instruction_prompt},
-            {"role": "user", "content": formatted_snps}
-        ]
+    api_key = os.getenv('API_KEY')
+    if not api_key:
+        raise ValueError("Missing API key! Please set the 'API_KEY' environment variable.")
+    client = genai.Client(api_key=api_key)
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        # messages=[
+        #     {"role": "system", "content": report_instruction_prompt},
+        #     {"role": "user", "content": formatted_snps}
+        # ]
+        contents=[report_instruction_prompt, formatted_snps]
+        
     )
-
-    return response.choices[0].message.content
+    return response.text
 
 
 allele_normalization = {
@@ -60,7 +65,7 @@ def find_variants(user_snp_df):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Process SNP data.')
-    parser.add_argument('snp_df_path', type=str, help='Path to user SNP data file')
+    parser.add_argument('snp_df_path', type=str, help='data/sample_snp_data.tsv')
     parser.add_argument('-t', '--threshold', type=float, default=2.0, help='Magnitude threshold')
     parser.add_argument('-o', '--output', type=str, default='report.txt', help='Path to output file')
 
